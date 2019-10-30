@@ -2,9 +2,6 @@
 #include <Windows.h>
 #include "lib/cryptoki.h"
 #include "lib/eTPkcs11.h"
-#include <vcclr.h>
-#include <msclr\marshal_cppstd.h>
-
 
 namespace labetoken {
 
@@ -74,15 +71,34 @@ namespace labetoken {
 				}
 			}
 
-			this->InitCryptoki();
-			this->GetSlotCount();
-			this->GetSlotList();
-			this->GetSlotInfo();
-
-			rv = pFunctionList->C_GetTokenInfo(*pSlotIList, &tokenInfo);
+			rv = pFunctionList->C_Initialize(NULL_PTR);
 
 			if (rv != CKR_OK) {
-				System::Windows::Forms::DialogResult status = MessageBox::Show("Unable to get token information");
+				System::Windows::Forms::DialogResult status =
+					MessageBox::Show("Unable to initialize Cryptoki library", "Error");
+
+				if (status == System::Windows::Forms::DialogResult::OK) {
+					exit(1);
+				}
+			}
+
+			rv = pFunctionList->C_GetSlotList(CK_FALSE, NULL_PTR, &ulCount);
+
+			if (rv != CKR_OK) {
+				System::Windows::Forms::DialogResult status =
+					MessageBox::Show("Unable to get slots. Try to replug eToken reader", "Error");
+
+				if (status == System::Windows::Forms::DialogResult::OK) {
+					exit(1);
+				}
+			}
+
+			pSlotIList = (CK_SLOT_ID_PTR)malloc(0);
+			rv = pFunctionList->C_GetSlotList(CK_TRUE, pSlotIList, &ulCount);
+
+			if (rv != CKR_OK) {
+				System::Windows::Forms::DialogResult status =
+					MessageBox::Show("Unable to get slots with tokens. Try to replug eToken reader", "Error");
 
 				if (status == System::Windows::Forms::DialogResult::OK) {
 					exit(1);
@@ -313,11 +329,6 @@ namespace labetoken {
 
 		String^ plainTextBox = this->richTextBoxPlainText->Text;
 
-		if (plainTextBox->Length > MAX_TEXT_LEN) {
-			MessageBox::Show("The string is too long");
-			return;
-		}
-
 		for (int i = 0; i < plainTextBox->Length; i++) {
 			plainText[i] += (char)plainTextBox[i];
 		}
@@ -359,31 +370,34 @@ namespace labetoken {
 	}
 
 	private: System::Void buttonAboutToken_Click(System::Object^ sender, System::EventArgs^ e) {
-		rv = pFunctionList->C_GetTokenInfo(*pSlotIList, &tokenInfo);
+		this->GetSlotInfo();
+		this->GetTokenInfo();
 
-		if (rv != CKR_OK) {
-			System::Windows::Forms::DialogResult status = 
-				MessageBox::Show("Unable to get token information", "Error");
-		}
-		else {
-			String^ serialNumber  = gcnew String(reinterpret_cast<char*>(tokenInfo.serialNumber));
-					serialNumber  = serialNumber->Substring(0, 16);
-			String^ label		  = gcnew String(reinterpret_cast<char*>(tokenInfo.label));
-					label = label->Substring(0, 32);
-			String^ model		  = gcnew String(reinterpret_cast<char*>(tokenInfo.model));
-					model = model->Substring(0, 16);
-			String^ manunfacturer = gcnew String(reinterpret_cast<char*>(tokenInfo.manufacturerID));
-					manunfacturer = manunfacturer->Substring(0, 32);
+		String^ slotDescription = gcnew String(reinterpret_cast<char*>(slotInfo.slotDescription));
+				slotDescription = slotDescription->Substring(0, 32);
+		String^ slotManunfacturer = gcnew String(reinterpret_cast<char*>(slotInfo.manufacturerID));
+				slotManunfacturer = slotManunfacturer->Substring(0, 32);
+		String^ serialNumber  = gcnew String(reinterpret_cast<char*>(tokenInfo.serialNumber));
+				serialNumber  = serialNumber->Substring(0, 16);
+		String^ label		  = gcnew String(reinterpret_cast<char*>(tokenInfo.label));
+				label = label->Substring(0, 32);
+		String^ model		  = gcnew String(reinterpret_cast<char*>(tokenInfo.model));
+				model = model->Substring(0, 16);
+		String^ tokenManunfacturer = gcnew String(reinterpret_cast<char*>(tokenInfo.manufacturerID));
+				tokenManunfacturer = tokenManunfacturer->Substring(0, 32);
 
-			System::Windows::Forms::DialogResult status =
-				MessageBox::Show(
-					"Serial ¹:    " + serialNumber + "\n" +
-					"Label:    " + label + "\n" + 
-					"Model:    " + model + "\n" +
-					"Manufacturer:    " + manunfacturer + "\n",
-					"About token"
-				);
-		}
+		System::Windows::Forms::DialogResult status =
+			MessageBox::Show(
+				"Slot information:\n"
+				"    Description:    " + slotDescription + "\n"
+				"    Manufacturer:    " + slotManunfacturer + "\n\n"
+				"Token information:\n"
+				"    Serial ¹:    " + serialNumber + "\n"
+				"    Label:    " + label + "\n"
+				"    Model:    " + model + "\n"
+				"    Manufacturer:    " + tokenManunfacturer + "\n",
+				"About"
+			);
 	}
 
 	private: System::Void Lab_eToken_FormClosing(System::Object^ sender, System::Windows::Forms::FormClosingEventArgs^ e)
@@ -395,60 +409,6 @@ namespace labetoken {
 
 	// Non win form methods
 	private:
-		void InitCryptoki() {
-			rv = pFunctionList->C_Initialize(NULL_PTR);
-
-			if (rv != CKR_OK) {
-				System::Windows::Forms::DialogResult status = 
-					MessageBox::Show("Unable to initialize Cryptoki library", "Error");
-
-				if (status == System::Windows::Forms::DialogResult::OK) {
-					exit(1);
-				}
-			}
-		}
-
-		void GetSlotCount() {
-			rv = pFunctionList->C_GetSlotList(CK_FALSE, NULL_PTR, &ulCount);
-
-			if (rv != CKR_OK) {
-				System::Windows::Forms::DialogResult status = 
-					MessageBox::Show(
-						"Unable to get slots. Try to replug eToken reader",
-						"Error",
-						MessageBoxButtons::RetryCancel
-					);
-
-				if (status == System::Windows::Forms::DialogResult::Retry) {
-					this->GetSlotCount();
-				}
-				else {
-					exit(1);
-				}
-			}
-		}
-
-		void GetSlotList() {
-			pSlotIList = (CK_SLOT_ID_PTR)malloc(0);
-			rv = pFunctionList->C_GetSlotList(CK_TRUE, pSlotIList, &ulCount);
-
-			if (rv != CKR_OK) {
-				System::Windows::Forms::DialogResult status = 
-					MessageBox::Show(
-						"Unable to get slots with tokens. Try to replug eToken reader",
-						"Error",
-						MessageBoxButtons::RetryCancel
-					);
-
-				if (status == System::Windows::Forms::DialogResult::Retry) {
-					this->GetSlotList();
-				}
-				else {
-					exit(1);
-				}
-			}
-		}
-
 		void GetSlotInfo() {
 			rv = pFunctionList->C_GetSlotInfo(*pSlotIList, &slotInfo);
 
@@ -462,6 +422,25 @@ namespace labetoken {
 
 				if (status == System::Windows::Forms::DialogResult::Retry) {
 					this->GetSlotInfo();
+				}
+				else {
+					exit(1);
+				}
+			}
+		}
+
+		void GetTokenInfo() {
+			rv = pFunctionList->C_GetTokenInfo(*pSlotIList, &tokenInfo);
+
+			if (rv != CKR_OK) {
+				System::Windows::Forms::DialogResult status = MessageBox::Show(
+					"Unable to get token information",
+					"Error",
+					MessageBoxButtons::RetryCancel
+				);
+
+				if (status == System::Windows::Forms::DialogResult::Retry) {
+					this->GetTokenInfo();
 				}
 				else {
 					exit(1);
