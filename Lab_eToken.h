@@ -25,16 +25,20 @@ namespace labetoken {
 	CK_SLOT_ID_PTR pSlotIList;
 	CK_SESSION_HANDLE hSession;
 	CK_FUNCTION_LIST_PTR pFunctionList;
-	CK_UTF8CHAR pin[] = { "123456789" };
+	CK_UTF8CHAR pin[] = { "1234567890" };
 	CK_OBJECT_HANDLE hKey;
 
 	CK_BYTE plainText[MAX_TEXT_LEN];
 	CK_ULONG plainTextLength = sizeof(plainText);
 	CK_BYTE encryptedText[MAX_TEXT_LEN];
 	CK_ULONG encryptedTextLength = sizeof(encryptedText);
+	CK_BYTE hash[16];
+	CK_ULONG hashLength = 16;
 	CK_BYTE encIV[8];
-	CK_MECHANISM encryptMechanism = { CKM_DES_CBC, encIV, sizeof(encIV) };
+	CK_MECHANISM encryptMechanism = { CKM_DES_CBC, encIV, sizeof(encIV)  };
 	CK_MECHANISM keygenMechanism = { CKM_DES_KEY_GEN, NULL, 0 };
+	CK_MECHANISM hashMechanism = { CKM_MD5, NULL, 0 };
+
 
 	public ref class Lab_eToken : public System::Windows::Forms::Form
 	{
@@ -157,6 +161,8 @@ namespace labetoken {
 	private: System::Windows::Forms::TextBox^ textBoxSessionKey;
 	private: System::Windows::Forms::Label^ labelSessionKey;
 	private: System::Windows::Forms::Label^ labelDecryptedText;
+	private: System::Windows::Forms::RichTextBox^ richTextBox1;
+	private: System::Windows::Forms::Button^ button1;
 
 
 
@@ -181,22 +187,24 @@ namespace labetoken {
 			this->textBoxSessionKey = (gcnew System::Windows::Forms::TextBox());
 			this->labelSessionKey = (gcnew System::Windows::Forms::Label());
 			this->labelDecryptedText = (gcnew System::Windows::Forms::Label());
+			this->richTextBox1 = (gcnew System::Windows::Forms::RichTextBox());
+			this->button1 = (gcnew System::Windows::Forms::Button());
 			this->SuspendLayout();
 			// 
 			// richTextBoxPlainText
 			// 
-			this->richTextBoxPlainText->Location = System::Drawing::Point(12, 28);
+			this->richTextBoxPlainText->Location = System::Drawing::Point(18, 43);
+			this->richTextBoxPlainText->Margin = System::Windows::Forms::Padding(4, 5, 4, 5);
 			this->richTextBoxPlainText->Name = L"richTextBoxPlainText";
-			this->richTextBoxPlainText->Size = System::Drawing::Size(215, 47);
+			this->richTextBoxPlainText->Size = System::Drawing::Size(320, 70);
 			this->richTextBoxPlainText->TabIndex = 0;
 			this->richTextBoxPlainText->Text = L"";
 			// 
 			// buttonAboutToken
 			// 
-			this->buttonAboutToken->Location = System::Drawing::Point(375, 266);
-			this->buttonAboutToken->Margin = System::Windows::Forms::Padding(2);
+			this->buttonAboutToken->Location = System::Drawing::Point(562, 409);
 			this->buttonAboutToken->Name = L"buttonAboutToken";
-			this->buttonAboutToken->Size = System::Drawing::Size(72, 23);
+			this->buttonAboutToken->Size = System::Drawing::Size(108, 35);
 			this->buttonAboutToken->TabIndex = 6;
 			this->buttonAboutToken->Text = L"About token";
 			this->buttonAboutToken->UseVisualStyleBackColor = true;
@@ -204,9 +212,10 @@ namespace labetoken {
 			// 
 			// buttonDecrypt
 			// 
-			this->buttonDecrypt->Location = System::Drawing::Point(94, 266);
+			this->buttonDecrypt->Location = System::Drawing::Point(141, 409);
+			this->buttonDecrypt->Margin = System::Windows::Forms::Padding(4, 5, 4, 5);
 			this->buttonDecrypt->Name = L"buttonDecrypt";
-			this->buttonDecrypt->Size = System::Drawing::Size(75, 23);
+			this->buttonDecrypt->Size = System::Drawing::Size(112, 35);
 			this->buttonDecrypt->TabIndex = 9;
 			this->buttonDecrypt->Text = L"Decrypt";
 			this->buttonDecrypt->UseVisualStyleBackColor = true;
@@ -214,9 +223,10 @@ namespace labetoken {
 			// 
 			// buttonEncrypt
 			// 
-			this->buttonEncrypt->Location = System::Drawing::Point(12, 266);
+			this->buttonEncrypt->Location = System::Drawing::Point(18, 409);
+			this->buttonEncrypt->Margin = System::Windows::Forms::Padding(4, 5, 4, 5);
 			this->buttonEncrypt->Name = L"buttonEncrypt";
-			this->buttonEncrypt->Size = System::Drawing::Size(75, 23);
+			this->buttonEncrypt->Size = System::Drawing::Size(112, 35);
 			this->buttonEncrypt->TabIndex = 1;
 			this->buttonEncrypt->Text = L"Encrypt";
 			this->buttonEncrypt->UseVisualStyleBackColor = true;
@@ -225,73 +235,94 @@ namespace labetoken {
 			// labelPlainText
 			// 
 			this->labelPlainText->AutoSize = true;
-			this->labelPlainText->Location = System::Drawing::Point(12, 12);
+			this->labelPlainText->Location = System::Drawing::Point(18, 18);
+			this->labelPlainText->Margin = System::Windows::Forms::Padding(4, 0, 4, 0);
 			this->labelPlainText->Name = L"labelPlainText";
-			this->labelPlainText->Size = System::Drawing::Size(78, 13);
+			this->labelPlainText->Size = System::Drawing::Size(113, 20);
 			this->labelPlainText->TabIndex = 3;
 			this->labelPlainText->Text = L"Text to encrypt";
 			// 
 			// labelEncryptedText
 			// 
 			this->labelEncryptedText->AutoSize = true;
-			this->labelEncryptedText->Location = System::Drawing::Point(13, 87);
+			this->labelEncryptedText->Location = System::Drawing::Point(20, 134);
+			this->labelEncryptedText->Margin = System::Windows::Forms::Padding(4, 0, 4, 0);
 			this->labelEncryptedText->Name = L"labelEncryptedText";
-			this->labelEncryptedText->Size = System::Drawing::Size(75, 13);
+			this->labelEncryptedText->Size = System::Drawing::Size(111, 20);
 			this->labelEncryptedText->TabIndex = 7;
 			this->labelEncryptedText->Text = L"Encrypted text";
 			// 
 			// richTextBoxEncryptedText
 			// 
-			this->richTextBoxEncryptedText->Location = System::Drawing::Point(12, 103);
+			this->richTextBoxEncryptedText->Location = System::Drawing::Point(18, 158);
+			this->richTextBoxEncryptedText->Margin = System::Windows::Forms::Padding(4, 5, 4, 5);
 			this->richTextBoxEncryptedText->Name = L"richTextBoxEncryptedText";
 			this->richTextBoxEncryptedText->ReadOnly = true;
-			this->richTextBoxEncryptedText->Size = System::Drawing::Size(215, 47);
+			this->richTextBoxEncryptedText->Size = System::Drawing::Size(320, 70);
 			this->richTextBoxEncryptedText->TabIndex = 8;
 			this->richTextBoxEncryptedText->Text = L"";
 			// 
 			// richTextBoxDecryptedText
 			// 
-			this->richTextBoxDecryptedText->Location = System::Drawing::Point(12, 182);
+			this->richTextBoxDecryptedText->Location = System::Drawing::Point(18, 280);
+			this->richTextBoxDecryptedText->Margin = System::Windows::Forms::Padding(4, 5, 4, 5);
 			this->richTextBoxDecryptedText->Name = L"richTextBoxDecryptedText";
 			this->richTextBoxDecryptedText->ReadOnly = true;
-			this->richTextBoxDecryptedText->Size = System::Drawing::Size(215, 47);
+			this->richTextBoxDecryptedText->Size = System::Drawing::Size(320, 70);
 			this->richTextBoxDecryptedText->TabIndex = 10;
 			this->richTextBoxDecryptedText->Text = L"";
 			// 
 			// textBoxSessionKey
 			// 
-			this->textBoxSessionKey->Location = System::Drawing::Point(316, 27);
-			this->textBoxSessionKey->Margin = System::Windows::Forms::Padding(2);
+			this->textBoxSessionKey->Location = System::Drawing::Point(474, 42);
 			this->textBoxSessionKey->Name = L"textBoxSessionKey";
 			this->textBoxSessionKey->ReadOnly = true;
-			this->textBoxSessionKey->Size = System::Drawing::Size(132, 20);
+			this->textBoxSessionKey->Size = System::Drawing::Size(196, 26);
 			this->textBoxSessionKey->TabIndex = 11;
 			// 
 			// labelSessionKey
 			// 
 			this->labelSessionKey->AutoSize = true;
-			this->labelSessionKey->Location = System::Drawing::Point(249, 30);
-			this->labelSessionKey->Margin = System::Windows::Forms::Padding(2, 0, 2, 0);
+			this->labelSessionKey->Location = System::Drawing::Point(374, 46);
 			this->labelSessionKey->Name = L"labelSessionKey";
-			this->labelSessionKey->Size = System::Drawing::Size(64, 13);
+			this->labelSessionKey->Size = System::Drawing::Size(94, 20);
 			this->labelSessionKey->TabIndex = 12;
 			this->labelSessionKey->Text = L"Session key";
 			// 
 			// labelDecryptedText
 			// 
 			this->labelDecryptedText->AutoSize = true;
-			this->labelDecryptedText->Location = System::Drawing::Point(13, 166);
-			this->labelDecryptedText->Margin = System::Windows::Forms::Padding(2, 0, 2, 0);
+			this->labelDecryptedText->Location = System::Drawing::Point(20, 255);
 			this->labelDecryptedText->Name = L"labelDecryptedText";
-			this->labelDecryptedText->Size = System::Drawing::Size(76, 13);
+			this->labelDecryptedText->Size = System::Drawing::Size(112, 20);
 			this->labelDecryptedText->TabIndex = 13;
 			this->labelDecryptedText->Text = L"Decrypted text";
 			// 
+			// richTextBox1
+			// 
+			this->richTextBox1->Location = System::Drawing::Point(474, 102);
+			this->richTextBox1->Name = L"richTextBox1";
+			this->richTextBox1->Size = System::Drawing::Size(196, 96);
+			this->richTextBox1->TabIndex = 14;
+			this->richTextBox1->Text = L"";
+			// 
+			// button1
+			// 
+			this->button1->Location = System::Drawing::Point(271, 409);
+			this->button1->Name = L"button1";
+			this->button1->Size = System::Drawing::Size(75, 35);
+			this->button1->TabIndex = 15;
+			this->button1->Text = L"button1";
+			this->button1->UseVisualStyleBackColor = true;
+			this->button1->Click += gcnew System::EventHandler(this, &Lab_eToken::button1_Click);
+			// 
 			// Lab_eToken
 			// 
-			this->AutoScaleDimensions = System::Drawing::SizeF(6, 13);
+			this->AutoScaleDimensions = System::Drawing::SizeF(9, 20);
 			this->AutoScaleMode = System::Windows::Forms::AutoScaleMode::Font;
-			this->ClientSize = System::Drawing::Size(458, 300);
+			this->ClientSize = System::Drawing::Size(687, 462);
+			this->Controls->Add(this->button1);
+			this->Controls->Add(this->richTextBox1);
 			this->Controls->Add(this->labelDecryptedText);
 			this->Controls->Add(this->labelSessionKey);
 			this->Controls->Add(this->textBoxSessionKey);
@@ -303,6 +334,7 @@ namespace labetoken {
 			this->Controls->Add(this->labelPlainText);
 			this->Controls->Add(this->buttonEncrypt);
 			this->Controls->Add(this->richTextBoxPlainText);
+			this->Margin = System::Windows::Forms::Padding(4, 5, 4, 5);
 			this->Name = L"Lab_eToken";
 			this->Text = L"Lab_eToken";
 			this->FormClosing += gcnew System::Windows::Forms::FormClosingEventHandler(this, &Lab_eToken::Lab_eToken_FormClosing);
@@ -447,5 +479,39 @@ namespace labetoken {
 				}
 			}
 		}
+private: System::Void button1_Click(System::Object^ sender, System::EventArgs^ e) {
+	for (int i = 0; i < MAX_TEXT_LEN; i++) {
+		plainText[i] = 0;
+	}
+
+	rv = pFunctionList->C_DigestInit(hSession, &hashMechanism);
+
+	if (rv != CKR_OK) {
+		System::Windows::Forms::DialogResult status = MessageBox::Show("Unable to initialize encryption");
+
+		if (status == System::Windows::Forms::DialogResult::OK) {
+			exit(1);
+		}
+	}
+
+	String^ plainTextBox = this->richTextBoxPlainText->Text;
+
+	for (int i = 0; i < plainTextBox->Length; i++) {
+		plainText[i] += (char)plainTextBox[i];
+	}
+
+	rv = pFunctionList->C_Digest(hSession, plainText, plainTextLength, hash, &hashLength);
+
+	if (rv != CKR_OK)
+	{
+		System::Windows::Forms::DialogResult status =
+			MessageBox::Show("Unable to hash data");
+	}
+	else {
+		String^ str = gcnew String(reinterpret_cast<char*>(hash));
+
+		richTextBox1->Text = str;
+	}
+}
 };
 }
